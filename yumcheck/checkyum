@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Perform checks for yum on VMs using Microsoft Azure RHUI
-#
+#testing
 VERSION="1.0.0"
 SCRIPTNAME=`basename $0`
 # Clean the environment
