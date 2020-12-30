@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#######################################
+# Gather VM and Resource group from user
+#######################################
+function header() {
+clear
+echo " This script will check if a supported load balancer is attached to the VM NIC"
+sleep 2
+echo "We need to get the VM name and resource group name"
+    prompt="Enter the VM name: "
+    read -p "$prompt" vmname
+    prompt="Enter the Resource Group name: "
+    read -p "$prompt" rgname
+echo $vmname $rgname
+   }
+
+#########
+function nicname {
+    #get the nic name and assign it to the variable nicname
+nicname=`az vm nic list -g $rgname --vm $vmname | grep id | cut -d "/" -f9 | sed 's/..$//'`
+echo "nic name is " $nicname
+}
+#######################################
+#Look for a load balancer
+#######################################
+function lbhunt {
+    loadbalancer=`az network nic show -g $rgname -n $nicname | grep loadBalancers | cut -d "/" -f 9`
+   if [ -z $loadbalancer ]; then
+   echo "There is no load balancer attached to the nic " $nicname 
+   else
+    echo "Load Balancer name is " $loadbalancer
+    fi
+}
+#######################################
+#Check if the load balancer is standard of basic
+#######################################
+function lbtype {
+ if [ -z $loadbalancer ]; then
+ echo " "
+    else
+    lbtype=`az network lb show -g $rgname -n $loadbalancer | grep Basic | cut -d "\"" -f4` 
+        if [ -z $lbtype ]; then
+        echo " The load balancer $loadbalancer of the type"Standard". This will not work with yum updates as it doesn't not have internet access. You will need to deploy a Basic load balancer" 
+        else
+        echo "The load balancer is a "Basic" Load Balancer. This should not be a problem"
+    fi
+fi
+}
+#######################################
+# Exit safely
+# Globals:
+#   None
+# Arguments:
+#   None
+#######################################
+function safe_exit() {
+  # Delete temp files, if any
+  if [ -d "${tmp_dir}" ] ; then
+    rm -r "${tmp_dir}"
+  fi
+  trap - INT TERM EXIT
+  exit
+}
+
+# run the funtions
+function main_script() {
+  header
+  nicname
+  lbhunt
+  lbtype
+}
+
+# Run all checks
+main_script
+# Safely exit script
+safe_exit
