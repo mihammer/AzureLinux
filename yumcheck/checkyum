@@ -8,6 +8,11 @@ PATH="/sbin:/usr/sbin:/usr/local/sbin:/usr/local/bin:/bin:/usr/bin"
 test -n "${TERM}" || TERM="raw"
 LANG="POSIX"
 export PATH TERM LANG
+# This script checks the following: 
+# Checking if the vm is using the current RHUI
+# Checking if the ssl cert dates are valid
+# Checking for connectivity to rhui-1.microsoft.com over port 443 
+# Checking for DNS Resolution
 
 #######################################
 # Header display to user
@@ -131,71 +136,6 @@ fi
 }
 
 #######################################
-# Collection of debug data if healing fails
-# Globals:
-#   tmp_dir
-# Arguments:
-#   None
-#######################################
-function collect_debug_data() {
-  cecho -c 'yellow' "Collecting debug data. Please wait..."
-  local date=$(date +"%Y-%m-%d_%H-%M-%S")
-  local var_location="/var/log/"
-  tmp_dir="/tmp/${scriptName}.$RANDOM.$RANDOM.$RANDOM.$$"
-  (umask 077 && mkdir "${tmp_dir}") || { 
-  die "Could not create temporary directory! Exiting."
-  }
-  local data_provider="$(cat /etc/regionserverclnt.cfg | grep dataProvider | cut -d "=" -f2)" 
-  if [[ "${FRAMEWORK}" == "azure" ]]; then
-    /usr/bin/azuremetadata --api latest > $tmp_dir/azuremetadata.latest 2>&1
-    /usr/bin/azuremetadata > $tmp_dir/azuremetadata.default 2>&1
-  elif [[ "${FRAMEWORK}" == "ec2" ]]; then
-    /usr/bin/ec2metadata --api latest > $tmp_dir/ec2metadata.latest 2>&1
-    /usr/bin/ec2metadata > $tmp_dir/ec2metadata.default 2>&1
-  elif [[ "${FRAMEWORK}" == "gce" ]]; then
-    /usr/bin/gcemetadata > $tmp_dir/gcemetadata.default 2>&1
-  fi
-
-  ($data_provider > $tmp_dir/metadata.dataprovider 2>&1)
-  cp /var/log/sc-repocheck $tmp_dir
-  /bin/ls -lA --time-style=long-iso /etc/products.d/ > $tmp_dir/baseproduct
-
-  if [[ "$TCPDUMP_OFF" -eq 0 ]]; then
-    tcpdump -s0 -C 100 -W 1 -w $tmp_dir/registercloudguest.pcap tcp port 443 or tcp port 80 2> /dev/null &
-    tcpdumppid=$(echo $!)
-  fi	
-  
-    registercloudguestnow
-
-  if [[ "$TCPDUMP_OFF" -eq 0 ]]; then
-    kill -13 ${tcpdumppid}
-    mv $tmp_dir/registercloudguest.pcap $tmp_dir/registercloudguest.${tcpdumppid}.pcap
-  fi
-
-  cp /var/log/cloudregister $tmp_dir
-  local filename="${var_location}${SCRIPTNAME}-${date}.tar.xz"
-  # compress and move debugging data to /var/log
-  tar cfJP $filename $tmp_dir/
-  cecho -c 'yellow' "Debug data location: $filename"
-}
-
-#######################################
-# Any actions that should be taken if the script is prematurely
-# exited. 
-# Globals:
-#   None
-# Arguments:
-#   None
-#######################################
-function trap_cleanup() {
-  echo ""
-  if [ -d "${tmp_dir}" ]; then
-    rm -r "${tmp_dir}"
-  fi
-  die "Script exited prematurely. Exit trapped."
-}
-
-#######################################
 # Exit safely
 # Globals:
 #   None
@@ -270,32 +210,6 @@ function cecho () {
  
     return;
 }
-#######################################
-# Print usage
-# Globals:
-#   None
-# Arguments:
-#   None
-#######################################
-usage() {
-  echo -n "${SCRIPTNAME} [OPTION]...
-SUSECloud Update Infrastructure Check
- Options:
-  -h, --help        Display this help and exit
-      --no-tcpdump  Don't run tcpdump during debug collection
-      --version     Output version information and exit
-"
-}
-
-#######################################
-# die
-# Globals:
-#   None
-# Arguments:
-#   None
-#######################################
-die() 
-{ echo "$*" 1>&2 ; exit 1; }
 
 #######################################
 # Run through all checks
@@ -322,59 +236,6 @@ function main_script() {
   #check_regionclient_version
   #report
 }
-
-
-
-############## End of Function definitions ###################
-# Iterate over options breaking -ab into -a -b when needed and --foo=bar into
-# --foo bar
-optstring=h
-unset options
-while (($#)); do
-  case $1 in
-    # If option is of type -ab
-    -[!-]?*)
-      # Loop over each character starting with the second
-      for ((i=1; i < ${#1}; i++)); do
-        c=${1:i:1}
-
-        # Add current char to options
-        options+=("-$c")
-
-        # If option takes a required argument, and it's not the last char make
-        # the rest of the string its argument
-        if [[ $optstring = *"$c:"* && ${1:i+1} ]]; then
-          options+=("${1:i+1}")
-          break
-        fi
-      done
-      ;;
-
-    # If option is of type --foo=bar
-    --?*=*) options+=("${1%%=*}" "${1#*=}") ;;
-    # add --endopts for --
-    --) options+=(--endopts) ;;
-    # Otherwise, nothing special
-    *) options+=("$1") ;;
-  esac
-  shift
-done
-set -- "${options[@]}"
-unset options
-
-# Read the options and set stuff
-while [[ $1 = -?* ]]; do
-  case $1 in
-    -h|--help) usage >&2; safe_exit ;;
-	--no-tcpdump) declare -i TCPDUMP_OFF=1 ;;
-    --version) echo "${SCRIPTNAME} ${VERSION}"; safe_exit ;;
-    *) die "invalid option: '$1'." ;;
-  esac
-  shift
-done
-
-# Store the remaining part as arguments.
-args+=("$@")
 
 ############## End of Options ###################
 
