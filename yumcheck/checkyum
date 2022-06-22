@@ -19,6 +19,7 @@ grep "Red" /etc/os-release &> /dev/null
   echo "Great, this is a Red Hat server"
 else echo "This operating system is no Red Hat. This script is intended for red hat yum issues"
         cecho -c 'red' "This is not a Red Hat server"
+	exit
 fi
   # Need confirmation from user to run
   cecho -c 'yellow' "!!THIS SCRIPT SHOULD ONLY BE USED IF INSTANCE HAS YUM REPOSITORY ISSUES!!"
