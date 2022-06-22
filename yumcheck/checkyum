@@ -18,17 +18,7 @@ export PATH TERM LANG
 # Header display to user
 #######################################
 function header() {
-#Checking if the VM is running Red Hat
-if [ $? -eq 0 ]; then
-grep "Red" /etc/os-release &> /dev/null
-  echo "Great, this is a Red Hat server"
-  echo 
-  cecho -c 'red' "Be sure to run this with sudo"
-  echo
-else echo "This operating system is no Red Hat. This script is intended for red hat yum issues"
-        cecho -c 'red' "This is not a Red Hat server"
-	exit
-fi
+
   # Need confirmation from user to run
   cecho -c 'yellow' "!!THIS SCRIPT SHOULD ONLY BE USED IF INSTANCE HAS YUM REPOSITORY ISSUES!!"
   #read -p "Are you sure you want to continue? [y/n] " -n 1 -r
