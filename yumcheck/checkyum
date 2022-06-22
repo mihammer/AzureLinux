@@ -18,7 +18,7 @@ if [ $? -eq 0 ]; then
 grep "Red" /etc/os-release &> /dev/null
   echo "Great, this is a Red Hat server"
   echo 
-  echo "Be sure to run this with sudo"
+  cecho -c 'red' "Be sure to run this with sudo"
   echo
 else echo "This operating system is no Red Hat. This script is intended for red hat yum issues"
         cecho -c 'red' "This is not a Red Hat server"
